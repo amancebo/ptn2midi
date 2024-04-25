@@ -182,7 +182,7 @@ class SfZoneType:
             raise ValueError
 
 def PrintUsage():
-    print("""
+    print(("""
 pysf version """ + str(PysfVersion) + """
 
 
@@ -190,7 +190,7 @@ Usage: pysf [conversion] [infile] [outfile]
     conversion := --sf2xml | --xml2sf
     conversion := --aif2xml | --xml2aif
     conversion := --wav2xml | --xml2wav
-""")
+"""))
     sys.exit(0)
 
 def ustr(Arg):
