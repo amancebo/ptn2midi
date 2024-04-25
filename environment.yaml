@@ -1,0 +1,9 @@
+channels:
+- pkgs/main
+dependencies:
+- python>=3,<3.12
+- pip
+- pip:
+  - pygame
+  - midiutil
+  - pydub
