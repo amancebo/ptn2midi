@@ -182,7 +182,7 @@ class SfZoneType:
             raise ValueError
 
 def PrintUsage():
-    print """
+    print("""
 pysf version """ + str(PysfVersion) + """
 
 
@@ -190,11 +190,11 @@ Usage: pysf [conversion] [infile] [outfile]
     conversion := --sf2xml | --xml2sf
     conversion := --aif2xml | --xml2aif
     conversion := --wav2xml | --xml2wav
-"""
+""")
     sys.exit(0)
 
 def ustr(Arg):
-    return unicode(str(Arg), 'utf-8')
+    return str(str(Arg), 'utf-8')
 
 def LogDie(Msg):
     logging.error(Msg)
@@ -212,18 +212,18 @@ def Def(Variable, Default):
 def Val(Dict, Key):
     if Dict == None:
         Retval = None
-    elif ListHas(Dict.keys(), Key):
+    elif ListHas(list(Dict.keys()), Key):
         Retval = Dict[Key]
     else:
         Retval = None
     return Retval
 
 def ListHas(List, Item):
-    return len(filter(lambda x: x == Item, List)) > 0
+    return len([x for x in List if x == Item]) > 0
 
 def LdFind(List, Key, Value):
     Retval = None
-    Results = filter(lambda x: x[Key] == Value, List)
+    Results = [x for x in List if x[Key] == Value]
     if len(Results) > 0:
         Retval = Results[0]
     return Retval
@@ -312,7 +312,7 @@ def DataCopy(         \
         FramesLeft = FramesLeft - DataSize
 
 def DictToXml(Xml, XmlEl, Dict):
-    KeyList = Dict.keys()
+    KeyList = list(Dict.keys())
     KeyList.sort()
     for Key in KeyList:
         if type(Dict[Key]) == dict:
@@ -361,7 +361,7 @@ def XmlToDict(Xml):
         if Node.nodeType == Node.ELEMENT_NODE:
             NewDict = XmlToDict(Node)
             if ListHas(CTags, Node.nodeName):
-                if ListHas(Dict.keys(), Node.nodeName):
+                if ListHas(list(Dict.keys()), Node.nodeName):
                     Dict[Node.nodeName].append(NewDict)
                 else:
                     Dict[Node.nodeName] = [NewDict]
@@ -448,10 +448,10 @@ def AudToXml(Src, Dst, Format):
     Xml = open(Dst, 'wb')
     Dict = {
         ustr(Format): {
-            u'channels': Aud.getnchannels(), 
-            u'sampleSize': Aud.getsampwidth() * 8,
-            u'sampleRate': Aud.getframerate(),
-            u'file': RawFile
+            'channels': Aud.getnchannels(), 
+            'sampleSize': Aud.getsampwidth() * 8,
+            'sampleRate': Aud.getframerate(),
+            'file': RawFile
         }
     }
     Xml.write(DictToXmlStr(Dict))
@@ -463,14 +463,14 @@ def AudToXml(Src, Dst, Format):
 def XmlToAud(Src, Dst, Format):
     Aud = AudOpen(Dst, 'wb', Format)
     try:
-        Dict = XmlFileToDict(Src)[u'sf:pysf'][ustr(Format)]
+        Dict = XmlFileToDict(Src)['sf:pysf'][ustr(Format)]
     except KeyError:
         LogDie('Invalid input format.')
-    Channels = Def(Val(Dict, u'channels'), 0)
-    FileName = Def(Val(Dict, u'file'), 'noname.wav')
-    SampleSize = Def(Val(Dict, u'sampleSize'), 0)
-    SampleRate = Def(Val(Dict, u'sampleRate'), 44100)
-    Byteswap = Val(Dict, u'byteswap')
+    Channels = Def(Val(Dict, 'channels'), 0)
+    FileName = Def(Val(Dict, 'file'), 'noname.wav')
+    SampleSize = Def(Val(Dict, 'sampleSize'), 0)
+    SampleRate = Def(Val(Dict, 'sampleRate'), 44100)
+    Byteswap = Val(Dict, 'byteswap')
     if Byteswap != None:
         Byteswap = Byteswap == 1
     if Channels < 1:
@@ -569,9 +569,9 @@ def SfWavetableList(Tree):
         AchSampleName = AchSampleName.split('\0', 1)[0]
         FileName = "%s%d.wav" % (Tree.WtPrefix, Order + 1)
         WDict = {
-            u'id': Order + 1,
-            u'file': FileName,
-            u'name': AchSampleName
+            'id': Order + 1,
+            'file': FileName,
+            'name': AchSampleName
         }
         if SfSampleType == 0:
             logging.warn("wavetable %d, sampleType=0, default to mono" % (
@@ -580,11 +580,11 @@ def SfWavetableList(Tree):
         elif SfSampleType == 1:
             pass
         elif SfSampleType == 2:
-            WDict[u'channel'] = 'right'
-            WDict[u'link'] = WSampleLink + 1
+            WDict['channel'] = 'right'
+            WDict['link'] = WSampleLink + 1
         elif SfSampleType == 4:
-            WDict[u'channel'] = 'left'
-            WDict[u'link'] = WSampleLink + 1
+            WDict['channel'] = 'left'
+            WDict['link'] = WSampleLink + 1
         else:
             LogDie("wavetable %d, can't use %s SampleType %d" % (
                 Order + 1,
@@ -594,14 +594,14 @@ def SfWavetableList(Tree):
         if DwStartLoop != DwStart or \
             DwEndLoop != DwStart     \
         :
-            WDict[u'loop'] = {
-                u'begin': DwStartLoop - DwStart,
-                u'end': DwEndLoop - DwStart
+            WDict['loop'] = {
+                'begin': DwStartLoop - DwStart,
+                'end': DwEndLoop - DwStart
             }
         if ByOriginalPitch != 60:
-            WDict[u'pitch'] = ByOriginalPitch
+            WDict['pitch'] = ByOriginalPitch
         if ChPitchCorrection != 0:
-            WDict[u'pitchcorr'] = ChPitchCorrection
+            WDict['pitchcorr'] = ChPitchCorrection
         List.append(WDict)
         SampleCount = DwEnd - DwStart
         Aud = wave.open(FileName, 'wb')
@@ -674,12 +674,12 @@ def SfZoneList(Tree, Zt):
         HdrD = HdrD[HdrFmtLen:]
         if Order > 0:
             IPDict = {
-                u'id': Order,
-                u'name': LastAchName,
-                u'zones': {}
+                'id': Order,
+                'name': LastAchName,
+                'zones': {}
             }
             if Zt.KeyN == 'preset':
-                IPDict[u'bank'] = LastWBank
+                IPDict['bank'] = LastWBank
             ZList = []
             for I in range(LastWBagNdx, WBagNdx):
                 Base = I * BagRecLen
@@ -702,14 +702,14 @@ def SfZoneList(Tree, Zt):
                         Name = 'unknown'
                     if ListHas([43, 44], SfGenOper) == True:
                         ZDict[ustr(Name)] = {
-                            u'begin': RangeBegin,
-                            u'end': RangeEnd
+                            'begin': RangeBegin,
+                            'end': RangeEnd
                         }
                     elif ListHas([33, 34, 35, 36, 38], SfGenOper) == True:
                         Dt = 0
                         if ShAmount != SHMIN:
                             Dt = pow(2.0, ShAmount / 1200.0)
-                        ZDict[ustr(Name)] = u'%0.04f' % (Dt)
+                        ZDict[ustr(Name)] = '%0.04f' % (Dt)
                     elif ListHas([37, 39, 40], SfGenOper) == True:
                         ZDict[ustr(Name)] = ShAmount
                     elif ListHas([53, 41], SfGenOper) == True:
@@ -718,7 +718,7 @@ def SfZoneList(Tree, Zt):
                                 Name,
                                 Zt.KeyN
                             ))
-                        ZDict[ustr(Zt.ItemN) + u'Id'] = WAmount + 1
+                        ZDict[ustr(Zt.ItemN) + 'Id'] = WAmount + 1
                     elif SfGenOper == 58:
                         if Zt.KeyN == 'preset':
                             logging.warn('ignoring overridingRootKey in preset')
@@ -739,20 +739,20 @@ def SfZoneList(Tree, Zt):
                             )
                     else:
                         Generators.append({
-                            u'comment': Name,
-                            u'hexAmount': "0x%x" % WAmount,
-                            u'oper': SfGenOper
+                            'comment': Name,
+                            'hexAmount': "0x%x" % WAmount,
+                            'oper': SfGenOper
                         })
                     if SfGenOper == Zt.Oper:
                         break
                     J = J + 1
                 if len(Generators) > 0:
-                    ZDict[u'gens'] = {
-                        u'gen': Generators
+                    ZDict['gens'] = {
+                        'gen': Generators
                     }
                 ZList.append(ZDict)
                 ZoneIndex = ZoneIndex + 1
-            IPDict[u'zones'][u'zone'] = ZList
+            IPDict['zones']['zone'] = ZList
             List.append(IPDict)
         Order = Order + 1
     return List
@@ -811,30 +811,30 @@ def SfToXml(Src, Dst):
         Major = 2
         Minor = 1
     Dict = {
-        u'wavetables': {
-            u'wavetable': SfWavetableList(Tree)
+        'wavetables': {
+            'wavetable': SfWavetableList(Tree)
         },
-        u'instruments': {
-            u'instrument': SfZoneListInstrument(Tree)
+        'instruments': {
+            'instrument': SfZoneListInstrument(Tree)
         },
-        u'presets': {
-            u'preset': SfZoneListPreset(Tree)
+        'presets': {
+            'preset': SfZoneListPreset(Tree)
         },
-        u'ISNG': Def(Tree.CkIdStr('isng', None, -1), u'pysf song'),
-        u'INAM': Def(Tree.CkIdStr('INAM', None, -1), u'pysf instruments'),
-        u'ICRD': Def(Tree.CkIdStr('ICRD', None, -1), ustr(DateAsciiGet())),
-        u'IPRD': Def(Tree.CkIdStr('IPRD', None, -1), u'SBAWE32'),
-        u'IFIL': {
-            u'major': Major,
-            u'minor': Minor
+        'ISNG': Def(Tree.CkIdStr('isng', None, -1), 'pysf song'),
+        'INAM': Def(Tree.CkIdStr('INAM', None, -1), 'pysf instruments'),
+        'ICRD': Def(Tree.CkIdStr('ICRD', None, -1), ustr(DateAsciiGet())),
+        'IPRD': Def(Tree.CkIdStr('IPRD', None, -1), 'SBAWE32'),
+        'IFIL': {
+            'major': Major,
+            'minor': Minor
         },
-        u'ISFT': Def(
+        'ISFT': Def(
             Tree.CkIdStr('ISFT', None, -1),
-            u'pysf %d:pysf %d' % (PysfVersion, PysfVersion)
+            'pysf %d:pysf %d' % (PysfVersion, PysfVersion)
         )
      }
     OutHandle.write(DictToXmlStr({
-        u'sf2': Dict
+        'sf2': Dict
     }))
     InHandle.close()
     OutHandle.close()
@@ -842,8 +842,8 @@ def SfToXml(Src, Dst):
 def SfIfil(Dict):
     try:
         Retval = (
-            Dict[u'IFIL'][u'major'],
-            Dict[u'IFIL'][u'minor']
+            Dict['IFIL']['major'],
+            Dict['IFIL']['minor']
         )
     except (KeyError, TypeError):
         Retval = None
@@ -858,18 +858,18 @@ def SfInfo(Dict):
         ['LIST', 'INFO'],
         [
             'ifil', struct.pack('<2H', SfMajor, SfMinor),
-            'isng', SfStr(Def(Val(Dict, u'ISNG'), 'EMU8000')),
-            'INAM', SfStr(Def(Val(Dict, u'INAM'), 'noname')),
-            'ICRD', SfStr(Def(Val(Dict, u'ICRD'), DateAsciiGet()))
+            'isng', SfStr(Def(Val(Dict, 'ISNG'), 'EMU8000')),
+            'INAM', SfStr(Def(Val(Dict, 'INAM'), 'noname')),
+            'ICRD', SfStr(Def(Val(Dict, 'ICRD'), DateAsciiGet()))
         ]
     ]
-    Ieng = SfStr(Val(Dict, u'IENG'))
+    Ieng = SfStr(Val(Dict, 'IENG'))
     if Ieng != None:
         List[1].append('IENG', Ieng)
-    map(List[1].append, [
-        'IPRD', SfStr(Def(Val(Dict, u'IPRD'), 'SBAWE32')),
-        'ISFT', SfStr(Def(Val(Dict, u'ISFT'), 'SFEDT v1.28'))
-    ])
+    list(map(List[1].append, [
+        'IPRD', SfStr(Def(Val(Dict, 'IPRD'), 'SBAWE32')),
+        'ISFT', SfStr(Def(Val(Dict, 'ISFT'), 'SFEDT v1.28'))
+    ]))
     return List
 
 def StereoSampleCheck(Wavetables, Id, Channel, WSampleLink):
@@ -879,15 +879,15 @@ def StereoSampleCheck(Wavetables, Id, Channel, WSampleLink):
     else:
        RightId = WSampleLink
        LeftId = Id
-    Left = LdFind(Wavetables, u'id', LeftId)
+    Left = LdFind(Wavetables, 'id', LeftId)
     if Left == None:
         LogDie("Wavetable %d: Can't find left channel" % (Id))
-    Right = LdFind(Wavetables, u'id', RightId)
+    Right = LdFind(Wavetables, 'id', RightId)
     if Right == None:
         LogDie("Wavetable %d: Can't find right channel" % (Id))
-    if Left[u'link'] != RightId:
+    if Left['link'] != RightId:
         LogDie("Wavetable %d: Left channel not linked to right" % (Id))
-    if Right[u'link'] != LeftId:
+    if Right['link'] != LeftId:
         LogDie("Wavetable %d: Right channel not linked to Left" % (Id))
 
 def SfSdtaShdr(Dict):
@@ -902,16 +902,16 @@ def SfSdtaShdr(Dict):
         Minor
     ) = Def(SfIfil(Dict), (2, 1))
     GlobalSampWidth = -1
-    Wavetables = Dict[u'wavetables'][u'wavetable']
+    Wavetables = Dict['wavetables']['wavetable']
     for Wavetable in Wavetables:
-        Id = Wavetable[u'id']
+        Id = Wavetable['id']
         if Id != Order + 1:
             LogDie("Wavetable %d: id=%d, expected %d" % (
                 Order + 1,
                 Id,
                 Order + 1
             ))
-        FileName = Wavetable[u'file']
+        FileName = Wavetable['file']
         Ext = os.path.splitext(FileName)[1][1:4].lower()
         if Ext == 'wav':
             Aud = wave.open(str(FileName), 'rb')
@@ -924,10 +924,10 @@ def SfSdtaShdr(Dict):
         Byteswap = True
         if DataOrder == sys.byteorder:
             Byteswap = False
-        WtName = SfStr(Def(Val(Wavetable, u'name'), ''), 20)
+        WtName = SfStr(Def(Val(Wavetable, 'name'), ''), 20)
         try:
-            WtLoopstart = Wavetable[u'loop'][u'begin']
-            WtLoopend = Wavetable[u'loop'][u'end']
+            WtLoopstart = Wavetable['loop']['begin']
+            WtLoopend = Wavetable['loop']['end']
         except KeyError:
             WtLoopstart = 0
             WtLoopend = 0
@@ -953,18 +953,18 @@ def SfSdtaShdr(Dict):
                 logging.warn("Wavetable %d: Insufficient loop margin" % (Id))
                 WtLoopstart = 0
                 WtLoopend = 0
-        ByOriginalPitch = Def(Val(Wavetable, u'pitch'), 60)
+        ByOriginalPitch = Def(Val(Wavetable, 'pitch'), 60)
         SfSampleType = 1
         WSampleLink = 0
         try:
-            Channel = Wavetable[u'channel']
+            Channel = Wavetable['channel']
             if Channel == 'right':
                 SfSampleType = 2
-                WSampleLink = Wavetable[u'link'] - 1
+                WSampleLink = Wavetable['link'] - 1
                 StereoSampleCheck(Wavetables, Id, Channel, WSampleLink + 1)
             elif Channel == 'left':
                 SfSampleType = 4
-                WSampleLink = Wavetable[u'link'] - 1
+                WSampleLink = Wavetable['link'] - 1
                 StereoSampleCheck(Wavetables, Id, Channel, WSampleLink + 1)
         except KeyError:
             pass
@@ -972,7 +972,7 @@ def SfSdtaShdr(Dict):
             if ByOriginalPitch != 255:
                 logging.warn("Wavetable %d: Pitch out of range" % (Id))
             ByOriginalPitch = 60 # MIDI C-5
-        ChPitchCorrection = Def(Val(Wavetable, u'pitchcorr'), 0)
+        ChPitchCorrection = Def(Val(Wavetable, 'pitchcorr'), 0)
         AudChannel = -1 # no filter
         if Aud.getnchannels() == 2:
             if SfSampleType == 2:
@@ -1067,8 +1067,8 @@ def SfSdtaShdr(Dict):
 
 def SfRange(Item, Key, Min, Max, DefaultVal, Msg, Warn):
     try:
-        Begin = Item[Key][u'begin']
-        End = Item[Key][u'end']
+        Begin = Item[Key]['begin']
+        End = Item[Key]['end']
         if Begin < Min or  \
             End < Min or   \
             Begin > Max or \
@@ -1097,7 +1097,7 @@ def SfZone(Dict, Zt):
     Loopstart = 0
     Loopend = 0
     IopsCount = 0
-    ItemMax = len(Dict[Zt.ItemN + u's'][Zt.ItemN])
+    ItemMax = len(Dict[Zt.ItemN + 's'][Zt.ItemN])
     GenC = 0
     ModC = 0
     BagC = 0
@@ -1107,22 +1107,22 @@ def SfZone(Dict, Zt):
     BagD = ''
     HdrD = ''
 
-    for InPr in Dict[Zt.KeyN + u's'][Zt.KeyN]:
+    for InPr in Dict[Zt.KeyN + 's'][Zt.KeyN]:
         logging.info("reading %s %d" % (Zt.KeyN, Order + 1))
-        Name = SfStr(Def(Val(InPr, u'name'), ''), 20)
+        Name = SfStr(Def(Val(InPr, 'name'), ''), 20)
         if Zt.KeyN == 'preset':
-            WBank = Def(Val(InPr, u'bank'), 0)
+            WBank = Def(Val(InPr, 'bank'), 0)
         ZoneIndex = 0
-        if len(InPr[u'zones'][u'zone']) == 0:
+        if len(InPr['zones']['zone']) == 0:
             GenD = GenD + struct.pack('<HH', 60, 0)
             BagD = BagD + struct.pack('<HH', GenC, ModC)
             GenC = GenC + 1
             ModC = ModC + 1
-        for Zone in InPr[u'zones'][u'zone']:
+        for Zone in InPr['zones']['zone']:
             Wstr = "%s %d zone %d" % (Zt.KeyN, Order + 1, ZoneIndex + 1)
             logging.info("reading %s" % (Wstr))
             IopsCount = 1
-            ItemRef = Zone[Zt.ItemN + u'Id'] - 1
+            ItemRef = Zone[Zt.ItemN + 'Id'] - 1
             if ItemRef < 0 or     \
                 ItemRef > ItemMax \
             :
@@ -1135,7 +1135,7 @@ def SfZone(Dict, Zt):
             (
                 KeyRangeBegin,
                 KeyRangeEnd
-            ) = SfRange(Zone, u'keyRange', 0, 127, -1, Wstr, True)
+            ) = SfRange(Zone, 'keyRange', 0, 127, -1, Wstr, True)
             if KeyRangeBegin > -1 and \
                 KeyRangeEnd > -1      \
             :
@@ -1149,7 +1149,7 @@ def SfZone(Dict, Zt):
             (
                 VelRangeBegin,
                 VelRangeEnd
-            ) = SfRange(Zone, u'velRange', 0, 127, -1, Wstr, False)
+            ) = SfRange(Zone, 'velRange', 0, 127, -1, Wstr, False)
             if VelRangeBegin > -1 and \
                 VelRangeEnd > -1      \
             :
@@ -1160,27 +1160,27 @@ def SfZone(Dict, Zt):
                     VelRangeBegin,
                     VelRangeEnd
                 )
-            OverridingRootKey = Def(Val(Zone, u'overridingRootKey'), -1)
+            OverridingRootKey = Def(Val(Zone, 'overridingRootKey'), -1)
             if OverridingRootKey > -1:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<HH', 58, OverridingRootKey)
-            ExclusiveClass = Def(Val(Zone, u'exclusiveClass'), -1)
+            ExclusiveClass = Def(Val(Zone, 'exclusiveClass'), -1)
             if ExclusiveClass > -1:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<HH', 57, ExclusiveClass)
             if Zt.KeyN == 'instrument':
                 try:
                     Wavetable = LdFind(
-                        Dict[u'wavetables'][u'wavetable'],
-                        u'id',
+                        Dict['wavetables']['wavetable'],
+                        'id',
                         ItemRef + 1
                     )
-                    Loopstart = Wavetable[u'loop'][u'begin']
-                    Loopend = Wavetable[u'loop'][u'end']
+                    Loopstart = Wavetable['loop']['begin']
+                    Loopend = Wavetable['loop']['end']
                 except (IndexError, KeyError):
                     Loopstart = 0
                     Loopend = 0
-                SampleModesStr = Def(Val(Zone, u'sampleModes'), "0_LoopNone")
+                SampleModesStr = Def(Val(Zone, 'sampleModes'), "0_LoopNone")
                 if SampleModesStr == "0_LoopNone":
                      SampleModes = 0
                 elif SampleModesStr == "1_LoopContinuous":
@@ -1198,45 +1198,45 @@ def SfZone(Dict, Zt):
                     SampleModes = 0
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 54, SampleModes)
-            EnvDelay = SfLog(Zone, u'delayVolEnv', SHOOBVAL)
+            EnvDelay = SfLog(Zone, 'delayVolEnv', SHOOBVAL)
             if EnvDelay > SHOOBVAL:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 33, EnvDelay)
-            EnvAttack = SfLog(Zone, u'attackVolEnv', SHOOBVAL)
+            EnvAttack = SfLog(Zone, 'attackVolEnv', SHOOBVAL)
             if EnvAttack > SHOOBVAL:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 34, EnvAttack)
-            EnvHold = SfLog(Zone, u'holdVolEnv', SHOOBVAL)
+            EnvHold = SfLog(Zone, 'holdVolEnv', SHOOBVAL)
             if EnvHold > SHOOBVAL:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 35, EnvHold)
-            EnvDecay = SfLog(Zone, u'decayVolEnv', SHOOBVAL)
+            EnvDecay = SfLog(Zone, 'decayVolEnv', SHOOBVAL)
             if EnvDecay > SHOOBVAL:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 36, EnvDecay)
-            EnvSustain = Def(Val(Zone, u'sustainVolEnv'), SHOOBVAL)
+            EnvSustain = Def(Val(Zone, 'sustainVolEnv'), SHOOBVAL)
             if EnvSustain > SHOOBVAL:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 37, EnvSustain)
-            EnvRelease = SfLog(Zone, u'releaseVolEnv', SHOOBVAL)
+            EnvRelease = SfLog(Zone, 'releaseVolEnv', SHOOBVAL)
             if EnvRelease > SHOOBVAL:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 38, EnvRelease)
-            KtveHold = Def(Val(Zone, u'keynumToVolEnvHold'), SHOOBVAL)
+            KtveHold = Def(Val(Zone, 'keynumToVolEnvHold'), SHOOBVAL)
             if KtveHold > SHOOBVAL:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 39, KtveHold)
-            KtveDecay = Def(Val(Zone, u'keynumToVolEnvDecay'), SHOOBVAL)
+            KtveDecay = Def(Val(Zone, 'keynumToVolEnvDecay'), SHOOBVAL)
             if KtveDecay > SHOOBVAL:
                 IopsCount = IopsCount + 1
                 GenD = GenD + struct.pack('<Hh', 40, KtveDecay)
             try:
-                for Generator in Zone[u'gens'][u'gen']:
+                for Generator in Zone['gens']['gen']:
                     IopsCount = IopsCount + 1
                     GenD = GenD + struct.pack(
                         '<HH',
-                        Generator[u'oper'],
-                        Generator[u'hexAmount']
+                        Generator['oper'],
+                        Generator['hexAmount']
                     )
             except KeyError:
                 pass
@@ -1319,7 +1319,7 @@ def SfPdta(Dict, Shdr):
 def XmlToSf(Src, Dst):
     OutHandle = open(Dst, 'wb')
     try:
-        Dict = XmlFileToDict(Src)[u'sf:pysf'][u'sf2']
+        Dict = XmlFileToDict(Src)['sf:pysf']['sf2']
     except KeyError:
         LogDie('Invalid input format.')
     Info = SfInfo(Dict)
@@ -1436,8 +1436,8 @@ SfModTypeDescs = (
     'Convex',
     'Switch'
 )
-XmlHeaderStr = u'<sf:pysf version="' + ustr(PysfVersion) + u'" xmlns:sf="http://terrorpin.net/~ben/docs/alt/music/soundfont/pysf" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://terrorpin.net/~ben/docs/alt/music/soundfont/pysf pysf.xsd">'
-XmlRootStr = XmlHeaderStr + u'</sf:pysf>'
+XmlHeaderStr = '<sf:pysf version="' + ustr(PysfVersion) + '" xmlns:sf="http://terrorpin.net/~ben/docs/alt/music/soundfont/pysf" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://terrorpin.net/~ben/docs/alt/music/soundfont/pysf pysf.xsd">'
+XmlRootStr = XmlHeaderStr + '</sf:pysf>'
 SHMIN = -32768
 SHOOBVAL = -32769
 
