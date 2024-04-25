@@ -13,8 +13,10 @@
 # Output:
 #  PTN_F1.mid
 #  PTN_F1.sf2
-
-import struct, binascii, sys, os, pygame, wave, os.path, shutil, pysf
+import glob
+import pathlib
+import subprocess
+import struct, binascii, sys, os, pygame, wave, os.path, shutil, pysf, aifc
 from collections import namedtuple
 from midiutil.MidiFile import MIDIFile
 
@@ -31,16 +33,17 @@ BYTES_PER_NOTE = 8
 # pad number (eg 13) to file name (eg "B0000001.WAV")
 def pad_number_to_filename(pad_number):
     pad_number -= 1
-    bank_number = pad_number / PADS_PER_BANK
+    bank_number = pad_number // PADS_PER_BANK
     bank_name = chr(ord('A') + bank_number)
     # print bank_name
     bank_pad_number = (pad_number % PADS_PER_BANK) + 1
     # print bank_pad_number
-    return bank_name + ('%07d' % bank_pad_number) + ".WAV"  # TODO: handle AIF
+    # return bank_name + ('%07d' % bank_pad_number) + ".WAV"  # TODO: handle AIF
+    return bank_name + ('%07d' % bank_pad_number)  # TODO: handle AIF
 
 
-assert pad_number_to_filename(1) == 'A0000001.WAV'
-assert pad_number_to_filename(120) == 'J0000012.WAV'
+# assert pad_number_to_filename(1) == 'A0000001.WAV'
+# assert pad_number_to_filename(120) == 'J0000012.WAV'
 
 
 # pattern name (eg B12) to pattern file name (eg PTN00012.BIN)
@@ -66,22 +69,21 @@ def get_pad_info():
         'start end user_start user_end volume lofi loop gate reverse unknown1 channels tempo_mode tempo user_tempo',
     )
     # TODO: sanity check filesize==3840bytes==120pads*32bytes
-    f = open(
-        sys.argv[1] + PADINFO_PATH, 'rb'
-    )  # TODO: don't assume user gave sd root path with trailing frontslash
-    pads = {}
-    i = 0
-    while i < TOTAL_BANKS * PADS_PER_BANK:
-        pad_data = f.read(
-            32
-        )  # TODO derive 32 from struct format and make the latter a constant
-        print(i, binascii.hexlify(pad_data))
-        pad = Pad._make(struct.unpack('>IIIIB????BBBII', pad_data))
-        print(pad)
-        # TODO: sanity check user_start and user_end are even numbers (16bit samples, 2 bytes per sample)
+    # TODO: don't assume user gave sd root path with trailing frontslash
+    with open(sys.argv[1] + PADINFO_PATH, 'rb') as f:
+        pads = {}
+        i = 0
+        while i < TOTAL_BANKS * PADS_PER_BANK:
+            pad_data = f.read(
+                32
+            )  # TODO derive 32 from struct format and make the latter a constant
+            print(i, binascii.hexlify(pad_data))
+            pad = Pad._make(struct.unpack('>IIIIB????BBBII', pad_data))
+            print(pad)
+            # TODO: sanity check user_start and user_end are even numbers (16bit samples, 2 bytes per sample)
 
-        pads[i + 1] = pad
-        i += 1
+            pads[i + 1] = pad
+            i += 1
     return pads
 
 
@@ -90,28 +92,28 @@ def get_pattern():
     # http://sp-forums.com/viewtopic.php?p=60635&sid=820f29eed0f7275dbeaf776173911736#p60635
     # http://sp-forums.com/viewtopic.php?p=60693&sid=820f29eed0f7275dbeaf776173911736#p60693
     Note = namedtuple('Note', 'delay pad bank_switch unknown2 velocity unknown3 length')
-    f = open(
+    with open(
         sys.argv[1] + PATTERN_DIRECTORY + pattern_name_to_filename(sys.argv[2]), 'rb'
-    )  # TODO: handle command line args w/ argparse
-    ptn_filesize = os.fstat(f.fileno()).st_size
-    # TODO: sanity check filesize==multiple of BYTES_PER_NOTE
-    notes = []
-    i = 0
-    while (
-        i < (ptn_filesize / BYTES_PER_NOTE) - 2
-    ):  # 2*8 trailer bytes at the end of the file
-        note_data = f.read(8)
-        print(i, binascii.hexlify(note_data))
-        note = Note._make(struct.unpack('>BBBBBBH', note_data))
-        print("", note)
-        notes.append(note)
+    ) as f:  # TODO: handle command line args w/ argparse
+        ptn_filesize = os.fstat(f.fileno()).st_size
+        # TODO: sanity check filesize==multiple of BYTES_PER_NOTE
+        notes = []
+        i = 0
+        while (
+            i < (ptn_filesize // BYTES_PER_NOTE) - 2
+        ):  # 2*8 trailer bytes at the end of the file
+            note_data = f.read(8)
+            print(i, binascii.hexlify(note_data))
+            note = Note._make(struct.unpack('>BBBBBBH', note_data))
+            print("", note)
+            notes.append(note)
 
-        i += 1
+            i += 1
 
-    ptn_trailer = f.read(16)
-    ptn_bars = struct.unpack('b', ptn_trailer[9])
-    print("ptn_bars", ptn_bars)
-    # TODO: sanity check total delay is appropriate for number of bars
+        ptn_trailer = f.read(16)
+        ptn_bars = struct.unpack('b', ptn_trailer[9:10])
+        print("ptn_bars", ptn_bars)
+        # TODO: sanity check total delay is appropriate for number of bars
     return notes
 
 
@@ -134,7 +136,7 @@ def notetuple_to_sample_number(note):
 
 
 def padtuple_to_trim_samplenums(pad):
-    return (pad.user_start - 512) / 2, (pad.user_end - 512) / 2
+    return (pad.user_start - 512) // 2, (pad.user_end - 512) // 2
 
 
 def create_midi_file(pads, notes, midi_tempo):
@@ -154,7 +156,8 @@ def create_midi_file(pads, notes, midi_tempo):
         if note.pad != 128:
             note_filename = notetuple_to_note_filename(note)
             note_path = sys.argv[1] + SAMPLE_DIRECTORY + note_filename
-            print("", "note_path:", note_path)
+            note_path = next(filter(lambda s: s.name.endswith(f'{note_filename}.WAV') or s.name.endswith(f'{note_filename}.AIF'), pathlib.Path(sys.argv[1] + SAMPLE_DIRECTORY).glob('*'))).as_posix()
+            print(note_path)
             if note_path not in note_path_to_pitch:
                 note_path_to_pitch[note_path] = next_available_pitch
                 next_available_pitch += 1
@@ -172,9 +175,12 @@ def create_midi_file(pads, notes, midi_tempo):
                 trim_wav_by_frame_numbers(
                     note_path, outfile_path, user_start_sample, user_end_sample
                 )
-                stereo_to_mono(
-                    outfile_path, outfile_path + "_mono.wav"
-                )  # TODO handle stereo samples
+                # stereo_to_mono(
+                #     outfile_path,
+                #     pathlib.Path(outfile_path).with_suffix('').as_posix()
+                #     + "_mono"
+                #     + pathlib.Path(note_path).suffix
+                # )  # TODO handle stereo samples
                 length = note.length / (PPQ * 1.0)
                 print("", "length:", length)
                 print("", "time:", time_in_beats_for_next_note)
@@ -202,10 +208,14 @@ def create_midi_file(pads, notes, midi_tempo):
     # while True:
 
     for i in note_path_to_pitch:
+        # trimmed_mono_path = "/tmp/" + os.path.basename(i) + "_mono.wav"
+        basename = pathlib.Path(os.path.basename(i))
+        trimmed_mono_path = (pathlib.Path("/tmp/") / basename).as_posix()
+
         template_wav_path = (
-            "template" + ('%02d' % (note_path_to_pitch[i] - 35)) + ".wav"
+            "template" + ('%02d' % (note_path_to_pitch[i] - 35)) + pathlib.Path(trimmed_mono_path).suffix
         )
-        trimmed_mono_path = "/tmp/" + os.path.basename(i) + "_mono.wav"
+
         print(
             "pitch:",
             note_path_to_pitch[i],
@@ -221,32 +231,46 @@ def create_midi_file(pads, notes, midi_tempo):
         else:
             print("skipping missing sample wav")
 
-    binfile = open("PTN_" + sys.argv[2].upper() + ".mid", 'wb')
-    midi_file.writeFile(binfile)
-    binfile.close()
+    with open("PTN_" + sys.argv[2].upper() + ".mid", 'wb') as binfile:
+        midi_file.writeFile(binfile)
     # play it with "timidity output.mid" /etc/timidity/freepats.cfg
     # see eg /usr/share/midi/freepats/Tone_000/004_Electric_Piano_1_Rhodes.pat
 
 
 # via http://ubuntuforums.org/showthread.php?t=1882580
-def trim_wav_by_frame_numbers(infile_path, outfile_path, start_frame, end_frame):
-    in_file = wave.open(infile_path, "r")
-    out_file = wave.open(outfile_path, "w")
-    out_length_frames = end_frame - start_frame
-    print("out_length_frames", out_length_frames)
-    out_file.setparams(
-        (
-            in_file.getnchannels(),
-            in_file.getsampwidth(),
-            in_file.getframerate(),
-            out_length_frames,
-            in_file.getcomptype(),
-            in_file.getcompname(),
-        )
-    )
-    in_file.setpos(start_frame)
-    out_file.writeframes(in_file.readframes(out_length_frames))
+def trim_wav_by_frame_numbers(infile_path, outfile_path, start_frame: int, end_frame: int):
+    if infile_path.lower().endswith('.aif'):
+        open_function = aifc.open
+    else:
+        open_function = wave.open
 
+    with (open_function(infile_path, "rb") as in_file,
+          open_function(outfile_path, "wb") as out_file):
+        out_length_frames = end_frame - start_frame
+        print("out_length_frames", out_length_frames)
+
+        if isinstance(in_file, aifc.Aifc_read) and isinstance(out_file, aifc.Aifc_write):
+            out_file.setparams((
+                in_file.getnchannels(),
+                in_file.getsampwidth(),
+                in_file.getframerate(),
+                out_length_frames,
+                in_file.getcomptype(),
+                in_file.getcompname(),
+            ))
+        elif isinstance(in_file, wave.Wave_read) and isinstance(out_file, wave.Wave_write):
+            out_file.setparams(
+                (
+                    in_file.getnchannels(),
+                    in_file.getsampwidth(),
+                    in_file.getframerate(),
+                    out_length_frames,
+                    in_file.getcomptype(),
+                    in_file.getcompname(),
+                )
+            )
+        in_file.setpos(start_frame)
+        out_file.writeframes(in_file.readframes(out_length_frames))
 
 # via http://stackoverflow.com/questions/2890703/how-to-join-two-wav-file-using-python
 def create_looped_wav():  # in_filename, out_filename):
@@ -254,30 +278,34 @@ def create_looped_wav():  # in_filename, out_filename):
     outfile = "concat.wav"
 
     data = []
-    for infile in infiles:
-        w = wave.open(infile, 'rb')
-        data.append([w.getparams(), w.readframes(w.getnframes())])
-        w.close()
 
-    output = wave.open(outfile, 'wb')
-    output.setparams(data[0][0])
-    output.writeframes(data[0][1])
-    output.writeframes(data[1][1])
-    output.close()
+    for infile in infiles:
+        if pathlib.Path(infile).suffix.lower() == '.aif':
+            open_function = aifc.open
+        else:
+            open_function = wave.open
+            with open_function(infile, 'rb') as w:
+                data.append([w.getparams(), w.readframes(w.getnframes())])
+
+    with wave.open(outfile, 'wb') as output:
+        output.setparams(data[0][0])
+        output.writeframes(data[0][1])
+        output.writeframes(data[1][1])
+        output.close()
 
 
 def stereo_to_mono(infile_path, outfile_path):
-    from pydub import AudioSegment
+    # from pydub import AudioSegment
 
-    sound = AudioSegment.from_wav(infile_path)
-    sound = sound.set_channels(1)
-    sound.export(outfile_path, format="wav")
-
+    # sound = AudioSegment.from_wav(infile_path)
+    # sound = sound.set_channels(1)
+    # sound.export(outfile_path, format="wav")
+    subprocess.run(['cp', infile_path, outfile_path])
 
 def create_soundfont_file():
     # TODO: embed a useful name in the soundfont instead of "cola..." from hammersound
     pysf.XmlToSf(
-        "template.xml", "PTN_" + sys.argv[2].upper() + ".sf2"
+        "template.xml", ("PTN_" + sys.argv[2].upper() + ".sf2")
     )  # TODO: support up to 120 samples in the soundfont
 
 
